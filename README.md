@@ -1,50 +1,125 @@
-# Welcome to your Expo app 👋
+# Warren
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A warranty management app — track product warranties, file claims, and extend coverage in one place.
 
-## Get started
+> **Status**: MVP in development. Web is the current deploy target; iOS/Android share the same codebase and ship later.
 
-1. Install dependencies
+## What it does
 
-   ```bash
-   npm install
-   ```
+- **Track warranties** for any product — brand, model, serial, purchase date, duration
+- **File claims** against a tracked warranty when something fails
+- **Extend warranties** before they expire (mock payment flow today; Stripe behind the same interface tomorrow)
+- **Magic-link sign-in** — no passwords, one email, RLS-enforced
+- **Cross-platform from one codebase** — web today, iOS/Android tomorrow, no rewrite
 
-2. Start the app
+## Tech stack
 
-   ```bash
-   npx expo start
-   ```
+- **[Expo](https://expo.dev) SDK 54** + **React Native 0.81** + **React 19** (with React Compiler enabled)
+- **[expo-router](https://docs.expo.dev/router/introduction/)** for file-based routing across platforms
+- **[NativeWind v4](https://www.nativewind.dev/)** — Tailwind for React Native; same classnames on web and native
+- **[Supabase](https://supabase.com)** — Postgres + auth + Row Level Security (every row scoped to `auth.uid()`)
+- **[TanStack Query](https://tanstack.com/query)** for server state
+- **[React Hook Form](https://react-hook-form.com)** + **[Zod](https://zod.dev)** for form state and validation
+- **[PostHog](https://posthog.com)** — analytics + error tracking (no-ops without an API key)
+- **[Jest](https://jestjs.io) + [jest-expo](https://github.com/expo/expo/tree/main/packages/jest-expo)** for unit tests
 
-In the output, you'll find options to open the app in a
+## Local setup
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Requires Node 20 (see `.nvmrc`).
 
 ```bash
-npm run reset-project
+git clone https://github.com/<your-username>/warren-dev.git
+cd warren-dev
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Environment variables
 
-## Learn more
+Copy `.env.example` to `.env.local` and fill in:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+cp .env.example .env.local
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+| Variable | Required | Notes |
+|---|---|---|
+| `EXPO_PUBLIC_SUPABASE_URL` | yes | from your Supabase project settings |
+| `EXPO_PUBLIC_SUPABASE_ANON_KEY` | yes | the anon/public key, **not** service-role |
+| `EXPO_PUBLIC_PAYMENTS` | no | `mock` (default) or `stripe` |
+| `EXPO_PUBLIC_POSTHOG_KEY` | no | leave empty to disable analytics |
+| `EXPO_PUBLIC_POSTHOG_HOST` | no | `https://us.i.posthog.com` (default) or EU |
 
-## Join the community
+### Database setup
 
-Join our community of developers creating universal apps.
+Run `supabase/migrations/0001_init.sql` in your Supabase project's SQL Editor (Project → SQL → New query → paste → Run). This creates the three tables (warranties, claims, extended_warranty_purchases) and the RLS policies that scope every row to its owner.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+### Run it
+
+```bash
+npm run web       # browser
+npm run ios       # iOS simulator (requires Xcode on macOS)
+npm run android   # Android emulator
+```
+
+## Project layout
+
+```
+app/                   expo-router file-based routes
+  (auth)/              unauthenticated screens (sign-in)
+  (tabs)/              main app tabs (warranties, claims, profile)
+  warranties/          warranty detail, new, extend, contact flows
+components/ui/         primitives (Button, Input, Screen, Text, etc.)
+hooks/                 React Query hooks for warranties, claims, extend-warranty
+lib/                   pure utilities, types, schemas, supabase + analytics clients
+providers/             React context: auth, query client, posthog
+services/payments/     payment provider interface + mock impl (Stripe TBD)
+supabase/migrations/   DB schema + RLS policies
+__mocks__/             Jest manual mocks
+```
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run web` | Dev server (browser) |
+| `npm run ios` / `npm run android` | Dev server (simulator/emulator) |
+| `npm run build:web` | Production web build → `dist/` |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | `expo lint` |
+| `npm test` | Jest |
+
+## Testing
+
+49 unit tests cover pure utilities and Zod schemas — the layers most prone to silent regressions:
+
+- `lib/utils.test.ts` — date math, currency formatting, expiration calculations
+- `lib/schemas.test.ts` — form validation edge cases (ISO dates, length bounds, required fields)
+
+Hook tests (with mocked Supabase client) are next on the roadmap.
+
+```bash
+npm test
+npm test -- --watch
+```
+
+CI runs `typecheck` → `lint` → `test` on every push and PR (see `.github/workflows/ci.yml`).
+
+## Deployment
+
+**Web**: deployed via [Cloudflare Pages](https://pages.cloudflare.com) on push to `main`.
+
+- Build command: `npm run build:web`
+- Output directory: `dist`
+- Environment variables: same as `.env.example` (set in Cloudflare dashboard, not committed)
+
+**Native (iOS/Android)**: deferred until product validation. The codebase already supports both — release will be packaging work, not rewriting work.
+
+## Architectural notes
+
+- **`EXPO_PUBLIC_*` vars are public.** They're bundled into shipped JS by design. The Supabase anon key is meant to be public; security comes from RLS policies, not from hiding the key. The `service_role` key is **never** committed and never used client-side.
+- **Payments are abstracted behind `services/payments/`.** Today: a mock provider that simulates 95% success. Tomorrow: a `StripePaymentProvider` swap-in (web → Stripe.js, native → `@stripe/stripe-react-native`) without touching call sites.
+- **Analytics no-op without a PostHog key.** Set `EXPO_PUBLIC_POSTHOG_KEY` to enable. Web/native session replay deferred (web needs `posthog-js`, native needs a custom dev client off Expo Go).
+
+## License
+
+TBD. Until a `LICENSE` file is added, default copyright applies (read welcome, copy/redistribute not granted).

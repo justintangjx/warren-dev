@@ -1,98 +1,150 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useRouter } from 'expo-router';
+import { ChevronRight, Plus } from 'lucide-react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Screen } from '@/components/ui/screen';
+import { Text } from '@/components/ui/text';
+import { productTypeMeta } from '@/constants/products';
+import { useWarrantiesList } from '@/hooks/use-warranties';
+import type { WarrantyWithComputed } from '@/lib/types';
+import { cn, formatRelativeExpiry, withComputed } from '@/lib/utils';
 
-export default function HomeScreen() {
+type Filter = 'all' | 'active' | 'expired';
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'expired', label: 'Expired' },
+];
+
+function statusTone(w: WarrantyWithComputed): {
+  tone: 'success' | 'warning' | 'destructive';
+  label: string;
+} {
+  if (!w.isActive) return { tone: 'destructive', label: 'Expired' };
+  if (w.daysUntilExpiry <= 30) return { tone: 'warning', label: 'Expiring soon' };
+  return { tone: 'success', label: 'Active' };
+}
+
+function WarrantyRow({ w, onPress }: { w: WarrantyWithComputed; onPress: () => void }) {
+  const meta = productTypeMeta(w.productType);
+  const status = statusTone(w);
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <Pressable onPress={onPress}>
+      <Card className="flex-row items-center gap-3">
+        <View className="h-12 w-12 items-center justify-center rounded-xl bg-secondary">
+          <Text className="text-2xl">{meta.emoji}</Text>
+        </View>
+        <View className="flex-1">
+          <View className="flex-row items-center gap-2">
+            <Text variant="subheading" numberOfLines={1} className="flex-1">
+              {w.brand} · {meta.label}
+            </Text>
+            <Badge label={status.label} tone={status.tone} />
+          </View>
+          <Text variant="muted" numberOfLines={1} className="mt-0.5">
+            {w.modelNumber}
+          </Text>
+          <Text variant="small" className="mt-0.5">
+            {formatRelativeExpiry(w.daysUntilExpiry)}
+          </Text>
+        </View>
+        <ChevronRight size={18} color="rgb(100 116 139)" />
+      </Card>
+    </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+export default function WarrantiesScreen() {
+  const router = useRouter();
+  const [filter, setFilter] = useState<Filter>('all');
+  const { data, isLoading, isRefetching, refetch, error } = useWarrantiesList();
+
+  const enriched = useMemo(() => (data ?? []).map((w) => withComputed(w)), [data]);
+
+  const visible = useMemo(() => {
+    if (filter === 'active') return enriched.filter((w) => w.isActive);
+    if (filter === 'expired') return enriched.filter((w) => !w.isActive);
+    return enriched;
+  }, [enriched, filter]);
+
+  return (
+    <Screen>
+      <View className="flex-row items-center justify-between py-4">
+        <Text variant="title">Warranties</Text>
+        <Button
+          label="Add"
+          size="sm"
+          leftIcon={<Plus size={16} color="white" />}
+          onPress={() => router.push('/warranties/new')}
+        />
+      </View>
+
+      <View className="mb-3 flex-row gap-2">
+        {FILTERS.map((f) => {
+          const isActive = filter === f.value;
+          return (
+            <Pressable
+              key={f.value}
+              onPress={() => setFilter(f.value)}
+              className={cn(
+                'rounded-full border px-3 py-1.5',
+                isActive ? 'border-primary bg-primary' : 'border-border bg-background'
+              )}>
+              <Text
+                className={cn(
+                  'text-sm font-medium',
+                  isActive ? 'text-primary-foreground' : 'text-foreground'
+                )}>
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <FlatList
+        data={visible}
+        keyExtractor={(w) => w.id}
+        contentContainerStyle={{ gap: 12, paddingBottom: 32 }}
+        renderItem={({ item }) => (
+          <WarrantyRow w={item} onPress={() => router.push(`/warranties/${item.id}`)} />
+        )}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+        ListEmptyComponent={
+          <Card>
+            {error ? (
+              <>
+                <Text variant="heading">Couldn’t load warranties</Text>
+                <Text variant="muted" className="mt-1">
+                  {error instanceof Error ? error.message : 'Unknown error'}
+                </Text>
+              </>
+            ) : isLoading ? (
+              <Text variant="muted">Loading…</Text>
+            ) : enriched.length === 0 ? (
+              <>
+                <Text variant="heading">No warranties yet</Text>
+                <Text variant="muted" className="mt-1">
+                  Tap “Add” to register your first warranty. We’ll calculate expiration dates
+                  and warn you before they lapse.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text variant="heading">No {filter} warranties</Text>
+                <Text variant="muted" className="mt-1">
+                  Try a different filter.
+                </Text>
+              </>
+            )}
+          </Card>
+        }
+      />
+    </Screen>
+  );
+}
