@@ -40,6 +40,10 @@ Good Warren copy should feel calm, practical, and slightly exact. Example direct
 - `hooks/` contains TanStack Query hooks.
 - `lib/supabase.ts` owns the Supabase client and configuration checks.
 - `services/payments/` abstracts payment behavior. Mock payments are active today.
+- `services/ocr/` abstracts receipt OCR. Web uses tesseract.js (lazily loaded via
+  `engine.web.ts`); native resolves `engine.ts`, which reports OCR as unsupported so the
+  form falls back to manual entry. Parsing heuristics live in `lib/receipt-parser.ts` and
+  warranty-term inference in `lib/warranty-terms.ts` — both pure and unit-tested.
 - `global.css` and `tailwind.config.js` define NativeWind tokens.
 
 Authentication is magic-link based through Supabase. The protected router in `app/_layout.tsx`
@@ -94,14 +98,22 @@ Optional:
 4. Confirm forms remain usable with keyboard input and disabled states.
 5. For landing work, check that the first viewport clearly says what Warren is and why it exists.
 
-### 4. Verification Loop
+### 4. Evaluation (Evals) Loop
+
+When modifying heuristics (like `lib/receipt-parser.ts` or `lib/warranty-terms.ts`):
+1. **Never guess**. Add a test case representing the new edge case or receipt format.
+2. If working with OCR, run a synthetic or real OCR output through the parser in a test (e.g., `.tmp-ocr-check/pipeline.test.ts` or directly in `lib/receipt-parser.test.ts`).
+3. Run `npm test` to verify the heuristic improves the target case *without* breaking existing extractions.
+4. Treat the test suite as the ground-truth eval dataset for the parser.
+
+### 5. Verification Loop
 
 1. Run `npm run typecheck`.
 2. Run `npm run lint`.
 3. Run targeted tests, or `npm test` when shared logic changed.
 4. If a command cannot run because of missing env or tooling, record the reason in the final handoff.
 
-### 5. Handoff Loop
+### 6. Handoff Loop
 
 1. Summarize changed files and behavior.
 2. List verification commands and outcomes.

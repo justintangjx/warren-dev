@@ -7,6 +7,7 @@ A warranty management app — track product warranties, file claims, and extend 
 ## What it does
 
 - **Track warranties** for any product — brand, model, serial, purchase date, duration
+- **Scan receipts** (web) — snap a photo and Warren extracts the retailer, date, product, and price, then suggests a warranty term from a brand/category lookup table
 - **File claims** against a tracked warranty when something fails
 - **Extend warranties** before they expire (mock payment flow today; Stripe behind the same interface tomorrow)
 - **Magic-link sign-in** — no passwords, one email, RLS-enforced
@@ -21,6 +22,7 @@ A warranty management app — track product warranties, file claims, and extend 
 - **[TanStack Query](https://tanstack.com/query)** for server state
 - **[React Hook Form](https://react-hook-form.com)** + **[Zod](https://zod.dev)** for form state and validation
 - **[PostHog](https://posthog.com)** — analytics + error tracking (no-ops without an API key)
+- **[tesseract.js](https://tesseract.projectnaptha.com/)** — client-side OCR for receipt scanning (web; loaded lazily, native fallback is manual entry)
 - **[Jest](https://jestjs.io) + [jest-expo](https://github.com/expo/expo/tree/main/packages/jest-expo)** for unit tests
 
 ## Local setup
@@ -51,7 +53,10 @@ cp .env.example .env.local
 
 ### Database setup
 
-Run `supabase/migrations/0001_init.sql` in your Supabase project's SQL Editor (Project → SQL → New query → paste → Run). This creates the three tables (warranties, claims, extended_warranty_purchases) and the RLS policies that scope every row to its owner.
+Run the files in `supabase/migrations/` **in order** in your Supabase project's SQL Editor (Project → SQL → New query → paste → Run):
+
+1. `0001_init.sql` — creates the three tables (warranties, claims, extended_warranty_purchases) and the RLS policies that scope every row to its owner.
+2. `0002_receipt_ocr.sql` — adds the optional `retailer` and `purchase_price_cents` columns used by receipt scanning.
 
 ### Run it
 
@@ -73,6 +78,7 @@ hooks/                 React Query hooks for warranties, claims, extend-warranty
 lib/                   pure utilities, types, schemas, supabase + analytics clients
 providers/             React context: auth, query client, posthog
 services/payments/     payment provider interface + mock impl (Stripe TBD)
+services/ocr/          receipt scanning abstraction (tesseract.js web, native fallback)
 supabase/migrations/   DB schema + RLS policies
 __mocks__/             Jest manual mocks
 ```
@@ -90,10 +96,12 @@ __mocks__/             Jest manual mocks
 
 ## Testing
 
-49 unit tests cover pure utilities and Zod schemas — the layers most prone to silent regressions:
+Unit tests cover pure utilities, Zod schemas, and receipt parsing — the layers most prone to silent regressions:
 
 - `lib/utils.test.ts` — date math, currency formatting, expiration calculations
 - `lib/schemas.test.ts` — form validation edge cases (ISO dates, length bounds, required fields)
+- `lib/receipt-parser.test.ts` — OCR text heuristics (retailer, date formats, totals, brand/product detection)
+- `lib/warranty-terms.test.ts` — warranty-term inference precedence (brand + category → brand → category → default)
 
 Hook tests (with mocked Supabase client) are next on the roadmap.
 

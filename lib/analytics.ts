@@ -11,6 +11,7 @@ export type AnalyticsEvent =
   | 'magic_link_requested'
   | 'warranty_created'
   | 'warranty_deleted'
+  | 'receipt_scanned'
   | 'claim_submitted'
   | 'extended_warranty_purchased';
 
@@ -22,6 +23,14 @@ export interface AnalyticsEventProperties {
     is_extended: boolean;
   };
   warranty_deleted: { warranty_id: string };
+  receipt_scanned: {
+    success: boolean;
+    found_retailer: boolean;
+    found_date: boolean;
+    found_total: boolean;
+    found_brand: boolean;
+    found_product_type: boolean;
+  };
   claim_submitted: { warranty_id: string; status: ClaimStatus };
   extended_warranty_purchased: {
     warranty_id: string;

@@ -1,4 +1,4 @@
-import { claimFormSchema, isoDate, warrantyFormSchema } from './schemas';
+import { claimFormSchema, isoDate, purchasePriceToCents, warrantyFormSchema } from './schemas';
 
 const firstError = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? undefined : result.error?.issues[0]?.message;
@@ -107,12 +107,53 @@ describe('warrantyFormSchema', () => {
     }
   });
 
+  it('accepts optional retailer and purchasePrice', () => {
+    const result = warrantyFormSchema.safeParse({
+      ...valid,
+      retailer: 'Best Buy',
+      purchasePrice: '1,299.99',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an empty purchasePrice string', () => {
+    expect(warrantyFormSchema.safeParse({ ...valid, purchasePrice: '' }).success).toBe(true);
+  });
+
+  it.each([
+    ['letters', 'abc'],
+    ['negative', '-5.00'],
+    ['three decimals', '12.345'],
+  ])('rejects purchasePrice: %s', (_label, purchasePrice) => {
+    const result = warrantyFormSchema.safeParse({ ...valid, purchasePrice });
+    expect(result.success).toBe(false);
+  });
+
   it('forwards the purchaseDate format error', () => {
     const result = warrantyFormSchema.safeParse({ ...valid, purchaseDate: 'nope' });
     if (!result.success) {
       const issue = result.error.issues.find((i) => i.path[0] === 'purchaseDate');
       expect(issue?.message).toBe('Use format YYYY-MM-DD');
     }
+  });
+});
+
+describe('purchasePriceToCents', () => {
+  it('converts a decimal price to cents', () => {
+    expect(purchasePriceToCents('1299.99')).toBe(129999);
+  });
+
+  it('handles thousands separators', () => {
+    expect(purchasePriceToCents('1,299.99')).toBe(129999);
+  });
+
+  it('handles whole numbers', () => {
+    expect(purchasePriceToCents('50')).toBe(5000);
+  });
+
+  it('returns null for empty or undefined', () => {
+    expect(purchasePriceToCents('')).toBeNull();
+    expect(purchasePriceToCents(undefined)).toBeNull();
   });
 });
 

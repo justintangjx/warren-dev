@@ -27,6 +27,8 @@ export interface Warranty {
   serialNumber: string;
   purchaseDate: string;
   warrantyDurationMonths: number;
+  retailer: string | null;
+  purchasePriceCents: number | null;
   receiptUrl: string | null;
   isExtended: boolean;
   extendedUntil: string | null;

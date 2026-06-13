@@ -11,7 +11,7 @@ import { productTypeMeta } from '@/constants/products';
 import { useClaimsList } from '@/hooks/use-claims';
 import { useDeleteWarranty, useWarranty } from '@/hooks/use-warranties';
 import type { ClaimStatus } from '@/lib/types';
-import { formatDate, formatRelativeExpiry, withComputed } from '@/lib/utils';
+import { formatCurrencySGD, formatDate, formatRelativeExpiry, withComputed } from '@/lib/utils';
 
 const OPEN_STATUSES: ReadonlySet<ClaimStatus> = new Set(['submitted', 'in_review']);
 const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
@@ -119,6 +119,10 @@ export default function WarrantyDetailScreen() {
           <Detail label="Model" value={w.modelNumber} />
           <Detail label="Serial" value={w.serialNumber} />
           <Detail label="Purchased" value={formatDate(w.purchaseDate)} />
+          {w.retailer ? <Detail label="Retailer" value={w.retailer} /> : null}
+          {w.purchasePriceCents != null ? (
+            <Detail label="Price paid" value={formatCurrencySGD(w.purchasePriceCents)} />
+          ) : null}
           <Detail label="Duration" value={`${w.warrantyDurationMonths} months`} />
           <Detail label="Expires" value={formatDate(w.expirationDate)} />
           {w.isExtended && w.extendedUntil ? (

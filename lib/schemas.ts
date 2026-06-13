@@ -28,7 +28,22 @@ export const warrantyFormSchema = z.object({
   serialNumber: z.string().min(1, 'Required'),
   purchaseDate: isoDate,
   warrantyDurationMonths: z.number().int().min(1, 'Must be at least 1 month').max(120),
+  retailer: z.string().max(120, 'Keep it under 120 characters').optional(),
+  purchasePrice: z
+    .string()
+    .refine(
+      (s) => s === '' || /^\d+(\.\d{1,2})?$/.test(s.replace(/,/g, '')),
+      'Use a price like 1299.99'
+    )
+    .optional(),
 });
+
+/** Convert a validated purchasePrice form string ("1,299.99") to integer cents, or null. */
+export function purchasePriceToCents(price: string | undefined): number | null {
+  if (!price) return null;
+  const normalized = price.replace(/,/g, '');
+  return Math.round(parseFloat(normalized) * 100);
+}
 
 export type WarrantyFormValues = z.infer<typeof warrantyFormSchema>;
 

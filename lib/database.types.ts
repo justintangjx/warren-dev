@@ -1,4 +1,4 @@
-// Hand-written to match supabase/migrations/0001_init.sql.
+// Hand-written to match supabase/migrations/ (0001_init.sql + 0002_receipt_ocr.sql).
 // Replace later with `supabase gen types typescript` output once the CLI is set up.
 
 export type Database = {
@@ -14,6 +14,8 @@ export type Database = {
           serial_number: string;
           purchase_date: string;
           warranty_duration_months: number;
+          retailer: string | null;
+          purchase_price_cents: number | null;
           receipt_url: string | null;
           is_extended: boolean;
           extended_until: string | null;
@@ -28,6 +30,8 @@ export type Database = {
           serial_number: string;
           purchase_date: string;
           warranty_duration_months?: number;
+          retailer?: string | null;
+          purchase_price_cents?: number | null;
           receipt_url?: string | null;
           is_extended?: boolean;
           extended_until?: string | null;

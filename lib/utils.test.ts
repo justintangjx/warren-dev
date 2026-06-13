@@ -21,6 +21,8 @@ const baseWarranty: Warranty = {
   serialNumber: 'SN1',
   purchaseDate: '2024-01-15',
   warrantyDurationMonths: 24,
+  retailer: null,
+  purchasePriceCents: null,
   receiptUrl: null,
   isExtended: false,
   extendedUntil: null,

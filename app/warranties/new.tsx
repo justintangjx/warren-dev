@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, KeyboardAvoidingView, Platform, View } from 'react-native';
 
+import { ReceiptScanner } from '@/components/receipt-scanner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Screen } from '@/components/ui/screen';
@@ -10,8 +11,10 @@ import { Select, type SelectOption } from '@/components/ui/select';
 import { Text } from '@/components/ui/text';
 import { COMMON_BRANDS, PRODUCT_TYPES } from '@/constants/products';
 import { useCreateWarranty } from '@/hooks/use-warranties';
-import { warrantyFormSchema, type WarrantyFormValues } from '@/lib/schemas';
+import type { ParsedReceipt } from '@/lib/receipt-parser';
+import { purchasePriceToCents, warrantyFormSchema, type WarrantyFormValues } from '@/lib/schemas';
 import type { ProductType } from '@/lib/types';
+import type { InferredWarrantyTerm } from '@/lib/warranty-terms';
 
 type FormValues = WarrantyFormValues;
 
@@ -34,6 +37,7 @@ export default function NewWarrantyScreen() {
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(warrantyFormSchema),
@@ -45,12 +49,38 @@ export default function NewWarrantyScreen() {
       serialNumber: '',
       purchaseDate: '',
       warrantyDurationMonths: 12,
+      retailer: '',
+      purchasePrice: '',
     },
   });
 
+  function applyScanResults(parsed: ParsedReceipt, inferredTerm: InferredWarrantyTerm) {
+    const opts = { shouldValidate: true, shouldDirty: true };
+    if (parsed.brand) setValue('brand', parsed.brand, opts);
+    if (parsed.productType) setValue('productType', parsed.productType, opts);
+    if (parsed.modelNumber) setValue('modelNumber', parsed.modelNumber, opts);
+    if (parsed.purchaseDate) setValue('purchaseDate', parsed.purchaseDate, opts);
+    if (parsed.retailer) setValue('retailer', parsed.retailer, opts);
+    if (parsed.totalCents != null) {
+      setValue('purchasePrice', (parsed.totalCents / 100).toFixed(2), opts);
+    }
+    if (parsed.brand || parsed.productType) {
+      setValue('warrantyDurationMonths', inferredTerm.months, opts);
+    }
+  }
+
   async function onSubmit(values: FormValues) {
     try {
-      await createWarranty.mutateAsync(values);
+      await createWarranty.mutateAsync({
+        brand: values.brand,
+        productType: values.productType,
+        modelNumber: values.modelNumber,
+        serialNumber: values.serialNumber,
+        purchaseDate: values.purchaseDate,
+        warrantyDurationMonths: values.warrantyDurationMonths,
+        retailer: values.retailer?.trim() || null,
+        purchasePriceCents: purchasePriceToCents(values.purchasePrice),
+      });
       router.back();
     } catch (err) {
       Alert.alert('Could not save', err instanceof Error ? err.message : String(err));
@@ -63,6 +93,8 @@ export default function NewWarrantyScreen() {
       className="flex-1">
       <Screen scroll>
         <View className="gap-4 py-4">
+          <ReceiptScanner onExtracted={applyScanResults} />
+
           <Controller
             control={control}
             name="brand"
@@ -142,6 +174,38 @@ export default function NewWarrantyScreen() {
                 autoCapitalize="none"
                 hint="Format: 2025-01-15"
                 error={errors.purchaseDate?.message}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="retailer"
+            render={({ field: { value, onChange, onBlur } }) => (
+              <Input
+                label="Retailer (optional)"
+                placeholder="Where you bought it, e.g. Courts"
+                value={value ?? ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                error={errors.retailer?.message}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="purchasePrice"
+            render={({ field: { value, onChange, onBlur } }) => (
+              <Input
+                label="Purchase price (optional)"
+                placeholder="e.g. 1299.99"
+                value={value ?? ''}
+                onChangeText={onChange}
+                onBlur={onBlur}
+                keyboardType="decimal-pad"
+                hint="In SGD — helps when filing a claim"
+                error={errors.purchasePrice?.message}
               />
             )}
           />

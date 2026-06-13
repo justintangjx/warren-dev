@@ -19,6 +19,8 @@ function rowToWarranty(row: WarrantyRow): Warranty {
     serialNumber: row.serial_number,
     purchaseDate: row.purchase_date,
     warrantyDurationMonths: row.warranty_duration_months,
+    retailer: row.retailer,
+    purchasePriceCents: row.purchase_price_cents,
     receiptUrl: row.receipt_url,
     isExtended: row.is_extended,
     extendedUntil: row.extended_until,
@@ -33,6 +35,8 @@ export interface NewWarrantyInput {
   serialNumber: string;
   purchaseDate: string;
   warrantyDurationMonths: number;
+  retailer?: string | null;
+  purchasePriceCents?: number | null;
 }
 
 export const warrantyKeys = {
@@ -91,6 +95,8 @@ export function useCreateWarranty() {
         serial_number: input.serialNumber,
         purchase_date: input.purchaseDate,
         warranty_duration_months: input.warrantyDurationMonths,
+        retailer: input.retailer ?? null,
+        purchase_price_cents: input.purchasePriceCents ?? null,
       };
       const { data, error } = await supabase
         .from('warranties')
