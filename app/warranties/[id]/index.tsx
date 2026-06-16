@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { LifeBuoy, Sparkles, Trash2 } from 'lucide-react-native';
-import { Alert, View } from 'react-native';
+import { CheckCircle2, ClipboardCheck, LifeBuoy, Sparkles, Trash2 } from 'lucide-react-native';
+import { Alert, Linking, View } from 'react-native';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,9 +9,25 @@ import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { productTypeMeta } from '@/constants/products';
 import { useClaimsList } from '@/hooks/use-claims';
+import {
+  useProductRegistration,
+  useUpsertProductRegistration,
+} from '@/hooks/use-product-registration';
 import { useDeleteWarranty, useWarranty } from '@/hooks/use-warranties';
-import type { ClaimStatus } from '@/lib/types';
+import { analytics } from '@/lib/analytics';
+import { buildRegistrationTarget } from '@/lib/product-registration';
+import type { ClaimStatus, RegistrationStatus } from '@/lib/types';
 import { formatCurrencySGD, formatDate, formatRelativeExpiry, withComputed } from '@/lib/utils';
+
+const REGISTRATION_BADGE: Record<
+  RegistrationStatus,
+  { tone: 'neutral' | 'primary' | 'success'; label: string }
+> = {
+  not_started: { tone: 'neutral', label: 'Not registered' },
+  assisted: { tone: 'primary', label: 'Started' },
+  registered: { tone: 'success', label: 'Registered' },
+  not_available: { tone: 'neutral', label: 'Not available' },
+};
 
 const OPEN_STATUSES: ReadonlySet<ClaimStatus> = new Set(['submitted', 'in_review']);
 const CLAIM_STATUS_LABEL: Record<ClaimStatus, string> = {
@@ -37,6 +53,8 @@ export default function WarrantyDetailScreen() {
   const router = useRouter();
   const { data, isLoading, error } = useWarranty(id);
   const { data: claims } = useClaimsList();
+  const { data: registration } = useProductRegistration(id);
+  const upsertRegistration = useUpsertProductRegistration();
   const deleteWarranty = useDeleteWarranty();
 
   const openClaim = (claims ?? []).find(
@@ -74,6 +92,46 @@ export default function WarrantyDetailScreen() {
     : w.daysUntilExpiry <= 30
       ? { tone: 'warning' as const, label: 'Expiring soon' }
       : { tone: 'success' as const, label: 'Active' };
+
+  const regTarget = buildRegistrationTarget(w);
+  const regStatus: RegistrationStatus = registration?.status ?? 'not_started';
+  const regBadge = REGISTRATION_BADGE[regStatus];
+
+  async function onOpenRegistration() {
+    if (!regTarget.openUrl) return;
+    analytics.capture('product_registration_link_opened', {
+      warranty_id: w.id,
+      brand: w.brand,
+      method: regTarget.method,
+    });
+    try {
+      await Linking.openURL(regTarget.openUrl);
+    } catch {
+      Alert.alert('Could not open', 'We could not open the registration page.');
+    }
+    try {
+      await upsertRegistration.mutateAsync({
+        warrantyId: w.id,
+        status: 'assisted',
+        method: regTarget.method,
+        registrationUrl: regTarget.openUrl,
+      });
+    } catch (err) {
+      analytics.captureException(err, { action: 'markAssisted' });
+    }
+  }
+
+  async function onMarkRegistration(next: RegistrationStatus) {
+    try {
+      await upsertRegistration.mutateAsync({
+        warrantyId: w.id,
+        status: next,
+        method: regTarget.method,
+      });
+    } catch (err) {
+      Alert.alert('Could not update', err instanceof Error ? err.message : String(err));
+    }
+  }
 
   function confirmDelete() {
     Alert.alert('Delete warranty?', 'This cannot be undone.', [
@@ -127,6 +185,66 @@ export default function WarrantyDetailScreen() {
           <Detail label="Expires" value={formatDate(w.expirationDate)} />
           {w.isExtended && w.extendedUntil ? (
             <Detail label="Extended until" value={formatDate(w.extendedUntil)} />
+          ) : null}
+        </Card>
+
+        <Card className="gap-3">
+          <View className="flex-row items-center justify-between">
+            <Text variant="subheading">Manufacturer registration</Text>
+            <Badge label={regBadge.label} tone={regBadge.tone} />
+          </View>
+
+          {regStatus === 'registered' ? (
+            <Text variant="muted">
+              You marked this product as registered with {w.brand}. Registration activates the
+              full manufacturer warranty and recall notices.
+            </Text>
+          ) : (
+            <Text variant="muted">
+              {regTarget.method === 'url'
+                ? `Register with ${w.brand} to activate the full manufacturer warranty. We’ll open their page — have these details ready:`
+                : `We don’t have a ${w.brand} registration link yet. Register on the manufacturer’s site using these details:`}
+            </Text>
+          )}
+
+          {regStatus !== 'registered' ? (
+            <View className="gap-1 rounded-xl bg-secondary p-3">
+              {regTarget.prefillFields.map((field) => (
+                <View key={field.label} className="flex-row items-start justify-between gap-3">
+                  <Text variant="muted">{field.label}</Text>
+                  <Text className="flex-1 text-right" selectable>
+                    {field.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {regStatus !== 'registered' ? (
+            <View className="gap-2">
+              {regTarget.method === 'url' ? (
+                <Button
+                  label={`Register with ${w.brand}`}
+                  leftIcon={<ClipboardCheck size={16} color="white" />}
+                  loading={upsertRegistration.isPending}
+                  onPress={onOpenRegistration}
+                />
+              ) : null}
+              <Button
+                label="I've registered this"
+                variant="secondary"
+                leftIcon={<CheckCircle2 size={16} color="rgb(15 23 42)" />}
+                loading={upsertRegistration.isPending}
+                onPress={() => onMarkRegistration('registered')}
+              />
+              {regStatus !== 'not_available' ? (
+                <Button
+                  label="Registration not available"
+                  variant="ghost"
+                  onPress={() => onMarkRegistration('not_available')}
+                />
+              ) : null}
+            </View>
           ) : null}
         </Card>
 

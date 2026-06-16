@@ -19,7 +19,7 @@ export const isoDate = z
   .string()
   .regex(/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/, 'Use format YYYY-MM-DD')
   .refine((s) => !Number.isNaN(Date.parse(s)), 'Not a valid date')
-  .refine((s) => Date.parse(s) <= Date.now(), 'Purchase date cannot be in the future');
+  .refine((s) => Date.parse(s) <= Date.now() + 86400000, 'Purchase date cannot be in the future');
 
 export const warrantyFormSchema = z.object({
   brand: z.string().min(1, 'Required'),

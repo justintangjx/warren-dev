@@ -1,6 +1,6 @@
 import type { PostHog } from 'posthog-react-native';
 
-import type { ClaimStatus, ExtendedPlanId, ProductType } from './types';
+import type { ClaimStatus, ExtendedPlanId, ProductType, RegistrationStatus } from './types';
 
 // Mirror of @posthog/core's JsonType / PostHogEventProperties. Kept local so we
 // don't reach into a transitive package's types.
@@ -13,7 +13,9 @@ export type AnalyticsEvent =
   | 'warranty_deleted'
   | 'receipt_scanned'
   | 'claim_submitted'
-  | 'extended_warranty_purchased';
+  | 'extended_warranty_purchased'
+  | 'product_registration_link_opened'
+  | 'product_registration_marked';
 
 export interface AnalyticsEventProperties {
   magic_link_requested: { has_email: boolean };
@@ -36,6 +38,15 @@ export interface AnalyticsEventProperties {
     warranty_id: string;
     plan: ExtendedPlanId;
     amount_cents: number;
+  };
+  product_registration_link_opened: {
+    warranty_id: string;
+    brand: string;
+    method: 'url' | 'unsupported';
+  };
+  product_registration_marked: {
+    warranty_id: string;
+    status: RegistrationStatus;
   };
 }
 

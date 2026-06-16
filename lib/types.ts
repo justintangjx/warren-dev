@@ -18,6 +18,8 @@ export type ExtendedPlanId = '1y' | '2y';
 
 export type PurchaseStatus = 'succeeded' | 'failed' | 'mocked';
 
+export type RegistrationStatus = 'not_started' | 'assisted' | 'registered' | 'not_available';
+
 export interface Warranty {
   id: string;
   userId: string;
@@ -54,6 +56,19 @@ export interface ExtendedWarrantyPurchase {
   stripePaymentIntentId: string | null;
   status: PurchaseStatus;
   createdAt: string;
+}
+
+export interface ProductRegistration {
+  id: string;
+  warrantyId: string;
+  userId: string;
+  status: RegistrationStatus;
+  method: 'url' | 'unsupported' | null;
+  registrationUrl: string | null;
+  confirmationReference: string | null;
+  registeredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface WarrantyWithComputed extends Warranty {

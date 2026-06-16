@@ -21,7 +21,7 @@ export const Input = forwardRef<TextInput, Props>(function Input(
         ref={ref}
         placeholderTextColor="rgb(148 163 184)"
         className={cn(
-          'h-11 rounded-xl border border-border bg-background px-3 text-base text-foreground',
+          'h-11 rounded-lg border border-border bg-muted px-3 text-base text-foreground',
           error && 'border-destructive',
           className
         )}

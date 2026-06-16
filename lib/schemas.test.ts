@@ -49,9 +49,9 @@ describe('isoDate', () => {
       );
     });
 
-    it('rejects tomorrow', () => {
-      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-      expect(firstError(isoDate.safeParse(tomorrow))).toBe(
+    it('rejects dates far in the future (accounting for timezone buffer)', () => {
+      const future = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      expect(firstError(isoDate.safeParse(future))).toBe(
         'Purchase date cannot be in the future',
       );
     });

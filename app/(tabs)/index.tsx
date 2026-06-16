@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, Plus } from 'lucide-react-native';
+import { ChevronRight, ClipboardCheck, Plus } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
@@ -9,7 +9,9 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { productTypeMeta } from '@/constants/products';
+import { useProductRegistrationsList } from '@/hooks/use-product-registration';
 import { useWarrantiesList } from '@/hooks/use-warranties';
+import { shouldPromptRegistration } from '@/lib/product-registration';
 import type { WarrantyWithComputed } from '@/lib/types';
 import { cn, formatRelativeExpiry, withComputed } from '@/lib/utils';
 
@@ -62,9 +64,24 @@ function WarrantyRow({ w, onPress }: { w: WarrantyWithComputed; onPress: () => v
 export default function WarrantiesScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
+  const [registrationDismissed, setRegistrationDismissed] = useState(false);
   const { data, isLoading, isRefetching, refetch, error } = useWarrantiesList();
+  const { data: registrationStatusMap } = useProductRegistrationsList();
 
   const enriched = useMemo(() => (data ?? []).map((w) => withComputed(w)), [data]);
+
+  const needsRegistration = useMemo(
+    () =>
+      enriched.filter(
+        (w) =>
+          shouldPromptRegistration({
+            purchaseDate: w.purchaseDate,
+            status: registrationStatusMap?.[w.id] ?? 'not_started',
+            isActive: w.isActive,
+          }).show
+      ),
+    [enriched, registrationStatusMap]
+  );
 
   const visible = useMemo(() => {
     if (filter === 'active') return enriched.filter((w) => w.isActive);
@@ -111,6 +128,30 @@ export default function WarrantiesScreen() {
         data={visible}
         keyExtractor={(w) => w.id}
         contentContainerStyle={{ gap: 12, paddingBottom: 32 }}
+        ListHeaderComponent={
+          needsRegistration.length > 0 && !registrationDismissed ? (
+            <Pressable onPress={() => router.push(`/warranties/${needsRegistration[0].id}`)}>
+              <Card className="mb-3 flex-row items-center gap-3 border-primary">
+                <View className="h-10 w-10 items-center justify-center rounded-xl bg-secondary">
+                  <ClipboardCheck size={20} color="rgb(15 23 42)" />
+                </View>
+                <View className="flex-1">
+                  <Text variant="subheading">
+                    {needsRegistration.length === 1
+                      ? '1 product needs registration'
+                      : `${needsRegistration.length} products need registration`}
+                  </Text>
+                  <Text variant="muted" className="mt-0.5">
+                    Register to activate the full manufacturer warranty.
+                  </Text>
+                </View>
+                <Pressable hitSlop={8} onPress={() => setRegistrationDismissed(true)}>
+                  <Text variant="muted">Dismiss</Text>
+                </Pressable>
+              </Card>
+            </Pressable>
+          ) : null
+        }
         renderItem={({ item }) => (
           <WarrantyRow w={item} onPress={() => router.push(`/warranties/${item.id}`)} />
         )}

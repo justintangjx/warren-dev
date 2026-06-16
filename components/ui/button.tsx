@@ -61,7 +61,7 @@ export function Button({
     <Pressable
       disabled={isDisabled}
       className={cn(
-        'flex-row items-center justify-center rounded-xl',
+        'flex-row items-center justify-center rounded-lg',
         containerByVariant[variant],
         sizeContainer[size],
         fullWidth && 'w-full',

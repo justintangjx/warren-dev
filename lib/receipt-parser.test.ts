@@ -74,6 +74,11 @@ describe('parseReceiptText', () => {
       expect(parseReceiptText('Date: 2024-11-30\nTotal 10.00').purchaseDate).toBe('2024-11-30');
     });
 
+    it('parses 2-digit years', () => {
+      expect(parseReceiptText('Date: 15/01/25').purchaseDate).toBe('2025-01-15');
+      expect(parseReceiptText('15 Jan 25').purchaseDate).toBe('2025-01-15');
+    });
+
     it('rejects future and impossible dates', () => {
       expect(parseReceiptText('Date: 2099-01-01').purchaseDate).toBeNull();
       expect(parseReceiptText('Date: 2024-13-45').purchaseDate).toBeNull();
@@ -122,6 +127,10 @@ describe('parseReceiptText', () => {
   describe('model number', () => {
     it('extracts an alphanumeric model token from the product line', () => {
       expect(parseReceiptText(BEST_BUY_RECEIPT).modelNumber).toBe('QN65Q80B');
+    });
+
+    it('extracts short models and searches across multiple lines', () => {
+      expect(parseReceiptText(COURTS_RECEIPT).modelNumber).toBe('V15');
     });
   });
 });

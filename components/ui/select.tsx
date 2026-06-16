@@ -58,7 +58,7 @@ export function Select<T extends string = string>({
       <Pressable
         onPress={() => setOpen(true)}
         className={cn(
-          'h-11 flex-row items-center justify-between rounded-xl border border-border bg-background px-3',
+          'h-11 flex-row items-center justify-between rounded-lg border border-border bg-muted px-3',
           error && 'border-destructive'
         )}>
         <Text className={cn(selected ? 'text-foreground' : 'text-muted-foreground')}>
@@ -72,7 +72,7 @@ export function Select<T extends string = string>({
         <Pressable className="flex-1 bg-black/40" onPress={close}>
           <Pressable
             onPress={(e) => e.stopPropagation()}
-            className="mx-auto mt-24 w-full max-w-md rounded-2xl border border-border bg-card p-4"
+            className="mx-auto mt-24 w-full max-w-md rounded-lg border border-border bg-card p-4 shadow-sm"
             style={{ maxHeight: '70%' }}>
             {label && (
               <Text variant="heading" className="mb-3">
@@ -112,7 +112,7 @@ export function Select<T extends string = string>({
                         </Text>
                       ) : null}
                     </View>
-                    {isSelected && <Check size={18} color="rgb(59 130 246)" />}
+                    {isSelected && <Check size={18} color="rgb(15 23 42)" />}
                   </Pressable>
                 );
               }}

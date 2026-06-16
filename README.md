@@ -8,6 +8,7 @@ A warranty management app — track product warranties, file claims, and extend 
 
 - **Track warranties** for any product — brand, model, serial, purchase date, duration
 - **Scan receipts** (web) — snap a photo and Warren extracts the retailer, date, product, and price, then suggests a warranty term from a brand/category lookup table
+- **Register products** with the manufacturer — Warren resolves the brand's registration page, surfaces the details to enter, deep-links you out, and tracks status with a time-boxed reminder
 - **File claims** against a tracked warranty when something fails
 - **Extend warranties** before they expire (mock payment flow today; Stripe behind the same interface tomorrow)
 - **Magic-link sign-in** — no passwords, one email, RLS-enforced
@@ -57,6 +58,7 @@ Run the files in `supabase/migrations/` **in order** in your Supabase project's 
 
 1. `0001_init.sql` — creates the three tables (warranties, claims, extended_warranty_purchases) and the RLS policies that scope every row to its owner.
 2. `0002_receipt_ocr.sql` — adds the optional `retailer` and `purchase_price_cents` columns used by receipt scanning.
+3. `0003_product_registration.sql` — adds the `product_registrations` table (one row per warranty) plus RLS and an `updated_at` trigger.
 
 ### Run it
 
@@ -73,9 +75,9 @@ app/                   expo-router file-based routes
   (auth)/              unauthenticated screens (sign-in)
   (tabs)/              main app tabs (warranties, claims, profile)
   warranties/          warranty detail, new, extend, contact flows
-components/ui/         primitives (Button, Input, Screen, Text, etc.)
-hooks/                 React Query hooks for warranties, claims, extend-warranty
-lib/                   pure utilities, types, schemas, supabase + analytics clients
+components/ui/         primitives (Button, Input, Screen, Text, etc.) — see AGENTS.md Design System
+hooks/                 React Query hooks for warranties, claims, extend-warranty, product-registration
+lib/                   pure utilities, types, schemas, supabase + analytics clients (incl. product-registration directory)
 providers/             React context: auth, query client, posthog
 services/payments/     payment provider interface + mock impl (Stripe TBD)
 services/ocr/          receipt scanning abstraction (tesseract.js web, native fallback)
@@ -102,6 +104,7 @@ Unit tests cover pure utilities, Zod schemas, and receipt parsing — the layers
 - `lib/schemas.test.ts` — form validation edge cases (ISO dates, length bounds, required fields)
 - `lib/receipt-parser.test.ts` — OCR text heuristics (retailer, date formats, totals, brand/product detection)
 - `lib/warranty-terms.test.ts` — warranty-term inference precedence (brand + category → brand → category → default)
+- `lib/product-registration.test.ts` — registration directory resolution, link/prefill building, and reminder-window logic
 
 Hook tests (with mocked Supabase client) are next on the roadmap.
 
@@ -124,6 +127,7 @@ CI runs `typecheck` → `lint` → `test` on every push and PR (see `.github/wor
 
 ## Architectural notes
 
+- **Visual design** follows the landing page palette (warm off-white background, slate-950 primary, restrained amber accent). Tokens live in `global.css`; conventions and rollout rules are in `AGENTS.md` → Design System.
 - **`EXPO_PUBLIC_*` vars are public.** They're bundled into shipped JS by design. The Supabase anon key is meant to be public; security comes from RLS policies, not from hiding the key. The `service_role` key is **never** committed and never used client-side.
 - **Payments are abstracted behind `services/payments/`.** Today: a mock provider that simulates 95% success. Tomorrow: a `StripePaymentProvider` swap-in (web → Stripe.js, native → `@stripe/stripe-react-native`) without touching call sites.
 - **Analytics no-op without a PostHog key.** Set `EXPO_PUBLIC_POSTHOG_KEY` to enable. Web/native session replay deferred (web needs `posthog-js`, native needs a custom dev client off Expo Go).

@@ -1,4 +1,5 @@
-// Hand-written to match supabase/migrations/ (0001_init.sql + 0002_receipt_ocr.sql).
+// Hand-written to match supabase/migrations/ (0001_init.sql + 0002_receipt_ocr.sql +
+// 0003_product_registration.sql).
 // Replace later with `supabase gen types typescript` output once the CLI is set up.
 
 export type Database = {
@@ -84,6 +85,34 @@ export type Database = {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['extended_warranty_purchases']['Insert']>;
+        Relationships: [];
+      };
+      product_registrations: {
+        Row: {
+          id: string;
+          warranty_id: string;
+          user_id: string;
+          status: 'not_started' | 'assisted' | 'registered' | 'not_available';
+          method: 'url' | 'unsupported' | null;
+          registration_url: string | null;
+          confirmation_reference: string | null;
+          registered_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          warranty_id: string;
+          user_id: string;
+          status?: 'not_started' | 'assisted' | 'registered' | 'not_available';
+          method?: 'url' | 'unsupported' | null;
+          registration_url?: string | null;
+          confirmation_reference?: string | null;
+          registered_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['product_registrations']['Insert']>;
         Relationships: [];
       };
     };

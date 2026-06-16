@@ -1,14 +1,7 @@
 import * as Linking from 'expo-linking';
 import { Check, Clock3, FileCheck2, Mail, ShieldCheck } from 'lucide-react-native';
 import { useState } from 'react';
-import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  useWindowDimensions,
-  View,
-} from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, Pressable, View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -92,9 +85,9 @@ function LedgerPreview() {
   );
 }
 
-function TrustStrip({ isWide }: { isWide: boolean }) {
+function TrustStrip() {
   return (
-    <View className={isWide ? 'flex-row gap-2' : 'gap-2'}>
+    <View className="gap-2 wide:flex-row">
       {trustItems.map(({ icon: Icon, label }) => (
         <View
           key={label}
@@ -111,8 +104,6 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
-  const { width } = useWindowDimensions();
-  const isWide = width >= 920;
 
   async function handleSendLink() {
     const trimmed = email.trim();
@@ -151,8 +142,8 @@ export default function SignInScreen() {
               <Text className="text-xs font-semibold uppercase text-slate-500">Warranty desk</Text>
             </View>
 
-            <View className={isWide ? 'flex-row items-center gap-12' : 'gap-8'}>
-              <View className={isWide ? 'flex-1' : undefined}>
+            <View className="gap-8 wide:flex-row wide:items-center wide:gap-12">
+              <View className="wide:flex-1">
                 <View className="mb-5 self-start rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5">
                   <Text className="text-xs font-bold uppercase text-emerald-800">
                     Keep the coverage you paid for
@@ -169,7 +160,7 @@ export default function SignInScreen() {
                 </Text>
 
                 <View className="mt-7">
-                  <TrustStrip isWide={isWide} />
+                  <TrustStrip />
                 </View>
 
                 {!isSupabaseConfigured && (
@@ -243,7 +234,7 @@ export default function SignInScreen() {
                 </View>
               </View>
 
-              <View className={isWide ? 'w-[430px]' : undefined}>
+              <View className="wide:w-[430px]">
                 <LedgerPreview />
               </View>
             </View>

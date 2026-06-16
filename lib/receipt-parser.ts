@@ -73,7 +73,7 @@ function isValidDate(year: number, month: number, day: number): boolean {
   if (year < 2000 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) return false;
   const d = new Date(Date.UTC(year, month - 1, day));
   if (d.getUTCMonth() !== month - 1 || d.getUTCDate() !== day) return false;
-  return d.getTime() <= Date.now();
+  return d.getTime() <= Date.now() + 86400000;
 }
 
 function toIso(year: number, month: number, day: number): string {
@@ -88,32 +88,35 @@ function extractDateFromLine(line: string): string | null {
     if (isValidDate(y, mo, d)) return toIso(y, mo, d);
   }
 
-  // 15/01/2025 or 01/15/2025 — disambiguate, defaulting to day-first
-  m = line.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})\b/);
+  // 15/01/2025 or 01/15/2025 or 15/01/25 — disambiguate, defaulting to day-first
+  m = line.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
   if (m) {
     const a = Number(m[1]);
     const b = Number(m[2]);
-    const y = Number(m[3]);
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
     const dayFirst = a > 12 ? true : b > 12 ? false : true;
     const [d, mo] = dayFirst ? [a, b] : [b, a];
     if (isValidDate(y, mo, d)) return toIso(y, mo, d);
   }
 
-  // 15 Jan 2025
-  m = line.match(/\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{4})\b/i);
+  // 15 Jan 2025 or 15 Jan 25
+  m = line.match(/\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{2,4})\b/i);
   if (m) {
     const d = Number(m[1]);
     const mo = MONTH_NAMES[m[2].toLowerCase()];
-    const y = Number(m[3]);
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
     if (isValidDate(y, mo, d)) return toIso(y, mo, d);
   }
 
-  // Jan 15, 2025
-  m = line.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})\b/i);
+  // Jan 15, 2025 or Jan 15, 25
+  m = line.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{2,4})\b/i);
   if (m) {
     const mo = MONTH_NAMES[m[1].toLowerCase()];
     const d = Number(m[2]);
-    const y = Number(m[3]);
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
     if (isValidDate(y, mo, d)) return toIso(y, mo, d);
   }
 
@@ -172,30 +175,32 @@ function extractRetailer(lines: string[]): string | null {
   return null;
 }
 
-function findBrand(lines: string[]): { brand: string; line: string } | null {
-  for (const line of lines) {
+function findBrand(lines: string[]): { brand: string; index: number } | null {
+  for (let i = 0; i < lines.length; i++) {
     for (const brand of COMMON_BRANDS) {
-      if (new RegExp(`\\b${brand}\\b`, 'i').test(line)) {
-        return { brand, line };
+      if (new RegExp(`\\b${brand}\\b`, 'i').test(lines[i])) {
+        return { brand, index: i };
       }
     }
   }
   return null;
 }
 
-function findProductType(lines: string[]): { type: ProductType; line: string } | null {
-  for (const line of lines) {
+function findProductType(lines: string[]): { type: ProductType; index: number } | null {
+  for (let i = 0; i < lines.length; i++) {
     for (const { pattern, type } of PRODUCT_TYPE_KEYWORDS) {
-      if (pattern.test(line)) return { type, line };
+      if (pattern.test(lines[i])) return { type, index: i };
     }
   }
   return null;
 }
 
-function extractModelNumber(line: string | null): string | null {
-  if (!line) return null;
-  // Alphanumeric token mixing letters and digits, e.g. QN65Q80B, WH-1000XM5, SV21.
-  const tokens = line.toUpperCase().match(/\b[A-Z0-9][A-Z0-9-]{3,}\b/g) ?? [];
+function extractModelNumber(lines: string[], startIndex: number | null): string | null {
+  if (startIndex === null) return null;
+  // Look at the matched line and the next 2 lines
+  const window = lines.slice(startIndex, startIndex + 3).join(' ');
+  // Alphanumeric token mixing letters and digits, e.g. QN65Q80B, WH-1000XM5, SV21, V15, PS5.
+  const tokens = window.toUpperCase().match(/\b[A-Z0-9][A-Z0-9-]{2,}\b/g) ?? [];
   for (const token of tokens) {
     if (!/[A-Z]/.test(token) || !/[0-9]/.test(token)) continue;
     if (/^\d+[A-Z]{1,3}$/.test(token)) continue; // quantities like 2PCS
@@ -209,7 +214,8 @@ export function parseReceiptText(text: string): ParsedReceipt {
 
   const brandHit = findBrand(lines);
   const typeHit = findProductType(lines);
-  const productLine = brandHit?.line ?? typeHit?.line ?? null;
+  const productIndex = brandHit?.index ?? typeHit?.index ?? null;
+  const productLine = productIndex !== null ? lines[productIndex] : null;
 
   return {
     retailer: extractRetailer(lines),
@@ -218,6 +224,6 @@ export function parseReceiptText(text: string): ParsedReceipt {
     brand: brandHit?.brand ?? null,
     productType: typeHit?.type ?? null,
     productLine,
-    modelNumber: extractModelNumber(productLine),
+    modelNumber: extractModelNumber(lines, productIndex),
   };
 }

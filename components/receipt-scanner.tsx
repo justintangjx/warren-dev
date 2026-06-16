@@ -34,6 +34,10 @@ function summarize(parsed: ParsedReceipt): string[] {
 export function ReceiptScanner({ onExtracted }: Props) {
   const [state, setState] = useState<ScanState>({ status: 'idle' });
 
+  if (!ocrEngine.isSupported) {
+    return null;
+  }
+
   async function scan() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({

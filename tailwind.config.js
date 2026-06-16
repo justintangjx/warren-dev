@@ -4,6 +4,9 @@ module.exports = {
   presets: [require('nativewind/preset')],
   theme: {
     extend: {
+      screens: {
+        wide: '920px',
+      },
       colors: {
         background: 'rgb(var(--background) / <alpha-value>)',
         foreground: 'rgb(var(--foreground) / <alpha-value>)',
@@ -26,6 +29,7 @@ module.exports = {
         'success-foreground': 'rgb(var(--success-foreground) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
         'warning-foreground': 'rgb(var(--warning-foreground) / <alpha-value>)',
+        'accent-amber': 'rgb(var(--accent-amber) / <alpha-value>)',
       },
     },
   },
