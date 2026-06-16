@@ -95,10 +95,13 @@ __mocks__/             Jest manual mocks
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | `expo lint` |
 | `npm test` | Jest |
+| `npm run check:docs` | Verify eval test files are listed in `AGENTS.md` and this file |
 
 ## Testing
 
-Unit tests cover pure utilities, Zod schemas, and receipt parsing — the layers most prone to silent regressions:
+Unit tests cover pure utilities, Zod schemas, and receipt parsing — the layers most prone to silent regressions.
+When you add or change an eval module, update this list and the eval table in `AGENTS.md` (see **Documentation Maintenance Loop** there).
+
 
 - `lib/utils.test.ts` — date math, currency formatting, expiration calculations
 - `lib/schemas.test.ts` — form validation edge cases (ISO dates, length bounds, required fields)
@@ -113,7 +116,8 @@ npm test
 npm test -- --watch
 ```
 
-CI runs `typecheck` → `lint` → `test` on every push and PR (see `.github/workflows/ci.yml`).
+CI runs `typecheck` → `lint` → `test` → `check:docs` on every push and PR (see `.github/workflows/ci.yml`).
+Pull requests use `.github/pull_request_template.md`, including a documentation checklist.
 
 ## Deployment
 

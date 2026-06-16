@@ -1,0 +1,21 @@
+---
+description: Eval module conventions when editing lib/*.ts
+globs: lib/**/*.ts
+alwaysApply: false
+---
+
+# Eval modules (`lib/`)
+
+Pure logic in `lib/` that agents or humans rely on should stay test-driven.
+
+When adding or changing heuristic logic (parsers, schemas, registration directory, utils):
+
+1. **Never guess** — add a test case in the matching `lib/*.test.ts` for the edge case.
+2. **Update docs in the same change**:
+   - `AGENTS.md` → Evals Loop table (module + test file)
+   - `README.md` → Testing bullet list
+3. Run `npm test` and `npm run check:docs` before handoff.
+
+New eval pair example: `lib/foo.ts` + `lib/foo.test.ts` must both appear in those doc sections.
+
+Hook tests and UI tests are out of scope for this rule; see `AGENTS.md` for full loop details.

@@ -1,0 +1,20 @@
+---
+description: Keep AGENTS.md and README.md in sync after features and fixes
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+Before finishing any feature, fix, or refactor, run the **Documentation Maintenance Loop** in `AGENTS.md` (loop 6).
+
+Unless the change is trivial (typo, comment-only):
+
+1. Update `AGENTS.md` — repository map, design system, eval table, agent loops, env/commands as triggered.
+2. Update `README.md` — features, migrations, project layout, testing list, scripts as triggered.
+3. In handoff, list doc files updated or say explicitly why none were needed.
+
+For `lib/` eval work, also follow `.cursor/rules/eval-modules.mdc`.
+
+Run `npm run check:docs` when eval tests or doc lists change — CI runs the same check.
+
+Do not defer doc updates to a follow-up unless the user explicitly asks to skip them.

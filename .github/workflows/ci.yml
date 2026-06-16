@@ -33,3 +33,6 @@ jobs:
 
       - name: Test
         run: npm test -- --ci
+
+      - name: Check documentation
+        run: npm run check:docs
