@@ -3,6 +3,7 @@ import '../global.css';
 
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
@@ -46,6 +47,15 @@ export default function RootLayout() {
 
   return (
     <Providers>
+      <Head>
+        <title>Warren — Warranty tracking and expiry reminders</title>
+        <meta
+          name="description"
+          content="Keep receipts, serial numbers, warranty expiry dates, and claim details together—and get reminded before coverage lapses."
+        />
+        <meta property="og:site_name" content="Warren" />
+        <meta property="og:type" content="website" />
+      </Head>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <ProtectedRouter />
         <StatusBar style="auto" />

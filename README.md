@@ -12,6 +12,8 @@ A warranty management app — track product warranties, file claims, and extend 
 - **File claims** against a tracked warranty when something fails
 - **Extend warranties** before they expire (mock payment flow today; Stripe behind the same interface tomorrow)
 - **Magic-link sign-in** — no passwords, one email, RLS-enforced
+- **Clear public product guide** — the landing page explains the core benefits, three-step workflow,
+  and common questions before asking visitors to start
 - **Cross-platform from one codebase** — web today, iOS/Android tomorrow, no rewrite
 
 ## Tech stack
@@ -131,7 +133,7 @@ Pull requests use `.github/pull_request_template.md`, including a documentation 
 
 ## Architectural notes
 
-- **Visual design** follows the landing page palette (warm off-white background, slate-950 primary, restrained amber accent). Tokens live in `global.css`; conventions and rollout rules are in `AGENTS.md` → Design System.
+- **Visual design** follows the landing page palette (warm off-white background, slate-950 primary, restrained amber accent). Its public content journey pairs an outcome-led hero with a benefit ledger, three-step workflow, visible FAQ, and route-specific web metadata. Tokens live in `global.css`; conventions and rollout rules are in `AGENTS.md` → Design System.
 - **`EXPO_PUBLIC_*` vars are public.** They're bundled into shipped JS by design. The Supabase anon key is meant to be public; security comes from RLS policies, not from hiding the key. The `service_role` key is **never** committed and never used client-side.
 - **Payments are abstracted behind `services/payments/`.** Today: a mock provider that simulates 95% success. Tomorrow: a `StripePaymentProvider` swap-in (web → Stripe.js, native → `@stripe/stripe-react-native`) without touching call sites.
 - **Analytics no-op without a PostHog key.** Set `EXPO_PUBLIC_POSTHOG_KEY` to enable. Web/native session replay deferred (web needs `posthog-js`, native needs a custom dev client off Expo Go).

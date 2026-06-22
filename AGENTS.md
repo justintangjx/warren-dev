@@ -21,6 +21,11 @@ React Native codebase.
 The unauthenticated entry screen is the landing/sign-in hybrid at `app/(auth)/sign-in.tsx`.
 Keep it specific to warranties and claims. Prefer concrete product artifacts such as coverage
 rows, receipt status, expiry reminders, claim readiness, and provider contact details.
+The page uses an outcome-led hero, an embedded start-free magic-link form, a benefit ledger,
+three-step workflow, and visible FAQ content. Preserve that fuller decision journey and keep the
+route's title and description metadata aligned with the hero when changing landing-page copy.
+Default metadata for the public root URL lives in `app/_layout.tsx`; keep it consistent too because
+authentication redirects happen client-side after the static web document is generated.
 
 Avoid template signals:
 
@@ -67,6 +72,8 @@ Do **not** reintroduce blue (`#2563eb`) as the primary brand color.
 - Uppercase micro-labels (`text-xs font-bold uppercase text-slate-500`) above section titles.
 - List rows: colored status dot + text tone (see `LedgerPreview` in sign-in) rather than heavy badges alone.
 - Concrete warranty artifacts in copy and previews — not abstract SaaS feature cards.
+- Landing-page benefits should read as concrete outcomes in ledger-style rows. Keep FAQ answers
+  visible in the document so visitors and search engines can understand the product without interaction.
 
 ### Responsive layout
 
