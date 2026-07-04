@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { ChevronRight, ClipboardCheck, Plus } from 'lucide-react-native';
+import { CheckCircle2, ChevronRight, ClipboardCheck, Clock3, Plus, X } from 'lucide-react-native';
 import { useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 
@@ -9,9 +9,12 @@ import { Card } from '@/components/ui/card';
 import { Screen } from '@/components/ui/screen';
 import { Text } from '@/components/ui/text';
 import { productTypeMeta } from '@/constants/products';
-import { useProductRegistrationsList } from '@/hooks/use-product-registration';
+import {
+  useAgentRecommendations,
+  useDismissAgentRecommendation,
+} from '@/hooks/use-agent-recommendations';
+import type { AgentAction, AgentPriority, AgentRecommendation } from '@/lib/agent-readiness';
 import { useWarrantiesList } from '@/hooks/use-warranties';
-import { shouldPromptRegistration } from '@/lib/product-registration';
 import type { WarrantyWithComputed } from '@/lib/types';
 import { cn, formatRelativeExpiry, withComputed } from '@/lib/utils';
 
@@ -61,26 +64,147 @@ function WarrantyRow({ w, onPress }: { w: WarrantyWithComputed; onPress: () => v
   );
 }
 
+function priorityBadge(priority: AgentPriority): {
+  tone: 'neutral' | 'primary' | 'warning';
+  label: string;
+} {
+  if (priority === 'high') return { tone: 'warning', label: 'Time-sensitive' };
+  if (priority === 'medium') return { tone: 'primary', label: 'Recommended' };
+  return { tone: 'neutral', label: 'Useful' };
+}
+
+function actionLabel(recommendation: AgentRecommendation): string {
+  switch (recommendation.kind) {
+    case 'register_product':
+      return 'Open details';
+    case 'extend_before_expiry':
+      return 'Review extension';
+    case 'claim_follow_up':
+      return 'Open claims';
+  }
+}
+
+function ReadinessRow({
+  recommendation,
+  onAction,
+  onDismiss,
+  dismissing,
+}: {
+  recommendation: AgentRecommendation;
+  onAction: (action: AgentAction) => void;
+  onDismiss: (id: string) => void;
+  dismissing: boolean;
+}) {
+  const badge = priorityBadge(recommendation.priority);
+  return (
+    <Card className="gap-3">
+      <View className="flex-row items-start gap-3">
+        <View className="h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+          <ClipboardCheck size={20} color="rgb(15 23 42)" />
+        </View>
+        <View className="flex-1 gap-1">
+          <View className="flex-row flex-wrap items-center gap-2">
+            <Text variant="subheading" className="flex-1">
+              {recommendation.title}
+            </Text>
+            <Badge label={badge.label} tone={badge.tone} />
+          </View>
+          <Text variant="muted">{recommendation.body}</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
+          disabled={dismissing}
+          onPress={() => onDismiss(recommendation.id)}>
+          <X size={18} color="rgb(100 116 139)" />
+        </Pressable>
+      </View>
+      <Button
+        label={actionLabel(recommendation)}
+        variant="secondary"
+        leftIcon={<ChevronRight size={16} color="rgb(15 23 42)" />}
+        onPress={() => onAction(recommendation.action)}
+      />
+    </Card>
+  );
+}
+
+function ReadinessInbox({
+  recommendations,
+  loading,
+  error,
+  dismissing,
+  onAction,
+  onDismiss,
+}: {
+  recommendations: AgentRecommendation[];
+  loading: boolean;
+  error: unknown;
+  dismissing: boolean;
+  onAction: (action: AgentAction) => void;
+  onDismiss: (id: string) => void;
+}) {
+  const visible = recommendations.slice(0, 3);
+
+  return (
+    <View className="mb-4 gap-3">
+      <View className="flex-row items-center justify-between">
+        <View>
+          <Text className="text-xs font-bold uppercase text-slate-500">Readiness</Text>
+          <Text variant="heading" className="mt-0.5">
+            Next useful actions
+          </Text>
+        </View>
+        <Clock3 size={20} color="rgb(100 116 139)" />
+      </View>
+
+      {error ? (
+        <Card className="gap-1">
+          <Text variant="subheading">Readiness unavailable</Text>
+          <Text variant="muted">
+            We could not refresh recommendations. Your warranties are still available below.
+          </Text>
+        </Card>
+      ) : loading && visible.length === 0 ? (
+        <Card className="flex-row items-center gap-3">
+          <Clock3 size={18} color="rgb(100 116 139)" />
+          <Text variant="muted">Checking coverage windows…</Text>
+        </Card>
+      ) : visible.length === 0 ? (
+        <Card className="flex-row items-center gap-3">
+          <CheckCircle2 size={18} color="rgb(22 101 52)" />
+          <View className="flex-1">
+            <Text variant="subheading">All caught up.</Text>
+            <Text variant="muted" className="mt-0.5">
+              No registration, extension, or claim follow-up needs attention right now.
+            </Text>
+          </View>
+        </Card>
+      ) : (
+        visible.map((recommendation) => (
+          <ReadinessRow
+            key={recommendation.id}
+            recommendation={recommendation}
+            dismissing={dismissing}
+            onAction={onAction}
+            onDismiss={onDismiss}
+          />
+        ))
+      )}
+    </View>
+  );
+}
+
 export default function WarrantiesScreen() {
   const router = useRouter();
   const [filter, setFilter] = useState<Filter>('all');
-  const [registrationDismissed, setRegistrationDismissed] = useState(false);
-  const { data, isLoading, isRefetching, refetch, error } = useWarrantiesList();
-  const { data: registrationStatusMap } = useProductRegistrationsList();
+  const warrantiesQuery = useWarrantiesList();
+  const recommendationsQuery = useAgentRecommendations();
+  const dismissRecommendation = useDismissAgentRecommendation();
 
-  const enriched = useMemo(() => (data ?? []).map((w) => withComputed(w)), [data]);
-
-  const needsRegistration = useMemo(
-    () =>
-      enriched.filter(
-        (w) =>
-          shouldPromptRegistration({
-            purchaseDate: w.purchaseDate,
-            status: registrationStatusMap?.[w.id] ?? 'not_started',
-            isActive: w.isActive,
-          }).show
-      ),
-    [enriched, registrationStatusMap]
+  const enriched = useMemo(
+    () => (warrantiesQuery.data ?? []).map((w) => withComputed(w)),
+    [warrantiesQuery.data]
   );
 
   const visible = useMemo(() => {
@@ -88,6 +212,23 @@ export default function WarrantiesScreen() {
     if (filter === 'expired') return enriched.filter((w) => !w.isActive);
     return enriched;
   }, [enriched, filter]);
+
+  function onReadinessAction(action: AgentAction) {
+    if (action.route === 'claims') {
+      router.push('/(tabs)/claims');
+      return;
+    }
+    if (action.route === 'extend_warranty') {
+      router.push(`/warranties/${action.warrantyId}/extend`);
+      return;
+    }
+    router.push(`/warranties/${action.warrantyId}`);
+  }
+
+  function refetchAll() {
+    warrantiesQuery.refetch();
+    recommendationsQuery.refetch();
+  }
 
   return (
     <Screen>
@@ -100,6 +241,15 @@ export default function WarrantiesScreen() {
           onPress={() => router.push('/warranties/new')}
         />
       </View>
+
+      <ReadinessInbox
+        recommendations={recommendationsQuery.data ?? []}
+        loading={recommendationsQuery.isLoading}
+        error={recommendationsQuery.error}
+        dismissing={dismissRecommendation.isPending}
+        onAction={onReadinessAction}
+        onDismiss={(id) => dismissRecommendation.mutate(id)}
+      />
 
       <View className="mb-3 flex-row gap-2">
         {FILTERS.map((f) => {
@@ -128,44 +278,27 @@ export default function WarrantiesScreen() {
         data={visible}
         keyExtractor={(w) => w.id}
         contentContainerStyle={{ gap: 12, paddingBottom: 32 }}
-        ListHeaderComponent={
-          needsRegistration.length > 0 && !registrationDismissed ? (
-            <Pressable onPress={() => router.push(`/warranties/${needsRegistration[0].id}`)}>
-              <Card className="mb-3 flex-row items-center gap-3 border-primary">
-                <View className="h-10 w-10 items-center justify-center rounded-xl bg-secondary">
-                  <ClipboardCheck size={20} color="rgb(15 23 42)" />
-                </View>
-                <View className="flex-1">
-                  <Text variant="subheading">
-                    {needsRegistration.length === 1
-                      ? '1 product needs registration'
-                      : `${needsRegistration.length} products need registration`}
-                  </Text>
-                  <Text variant="muted" className="mt-0.5">
-                    Register to activate the full manufacturer warranty.
-                  </Text>
-                </View>
-                <Pressable hitSlop={8} onPress={() => setRegistrationDismissed(true)}>
-                  <Text variant="muted">Dismiss</Text>
-                </Pressable>
-              </Card>
-            </Pressable>
-          ) : null
-        }
         renderItem={({ item }) => (
           <WarrantyRow w={item} onPress={() => router.push(`/warranties/${item.id}`)} />
         )}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={warrantiesQuery.isRefetching || recommendationsQuery.isRefetching}
+            onRefresh={refetchAll}
+          />
+        }
         ListEmptyComponent={
           <Card>
-            {error ? (
+            {warrantiesQuery.error ? (
               <>
                 <Text variant="heading">Couldn’t load warranties</Text>
                 <Text variant="muted" className="mt-1">
-                  {error instanceof Error ? error.message : 'Unknown error'}
+                  {warrantiesQuery.error instanceof Error
+                    ? warrantiesQuery.error.message
+                    : 'Unknown error'}
                 </Text>
               </>
-            ) : isLoading ? (
+            ) : warrantiesQuery.isLoading ? (
               <Text variant="muted">Loading…</Text>
             ) : enriched.length === 0 ? (
               <>

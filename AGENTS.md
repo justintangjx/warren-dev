@@ -11,7 +11,9 @@ Loop** below. A Cursor rule at `.cursor/rules/doc-maintenance.mdc` reinforces th
 Warren is a warranty management app. The user value is not generic organization; it is making
 coverage useful before something breaks. The product stores receipts, serial numbers, purchase
 dates, warranty durations, provider contact details, claim history, extension purchases, and
-manufacturer registration status.
+manufacturer registration status. The authenticated warranties tab includes a suggest-only
+Readiness Inbox backed by typed agent recommendations; it surfaces registration, extension, and
+claim follow-up actions without mutating user data until the user chooses a CTA.
 
 Current deploy target is web through Expo. iOS and Android should keep working from the same
 React Native codebase.
@@ -94,6 +96,8 @@ forms, Supabase queries, or navigation. Roll out in layers:
 After token or primitive changes, run the UI Quality Loop on **both** sign-in and the warranties tab.
 
 Reference: `LedgerPreview` in `app/(auth)/sign-in.tsx` is the north star for in-app list/detail styling.
+For the authenticated Readiness Inbox on `app/(tabs)/index.tsx`, keep recommendation rows concrete
+and action-oriented: show the warranty artifact, one clear next action, and a dismiss affordance.
 
 ## Repository map
 
@@ -102,12 +106,15 @@ Reference: `LedgerPreview` in `app/(auth)/sign-in.tsx` is the north star for in-
 - `app/(tabs)/` contains the authenticated app shell.
 - `app/warranties/` contains warranty create, detail, contact, and extension flows.
 - `components/ui/` contains shared primitives. Prefer these before introducing one-off UI.
-- `hooks/` contains TanStack Query hooks.
+- `hooks/` contains TanStack Query hooks, including `use-agent-recommendations.ts` for the
+  Readiness Inbox refresh/read/dismiss flow.
 - `lib/supabase.ts` owns the Supabase client and configuration checks.
 - Database schema lives in `supabase/migrations/` as hand-written SQL. There is no migration
   runner or Supabase CLI wired up: each numbered file must be applied **manually, in order, in
   the Supabase SQL Editor** for the change to exist in a live project. When you add or change a
   table/column, also hand-update `lib/database.types.ts` to match (it is not generated yet).
+- `supabase/functions/refresh-agent-readiness/` is the server-side boundary for refreshing
+  readiness recommendations. Keep model/provider secrets there, never in Expo client code.
 - `services/payments/` abstracts payment behavior. Mock payments are active today.
 - `services/ocr/` abstracts receipt OCR. Web uses tesseract.js (lazily loaded via
   `engine.web.ts`); native resolves `engine.ts`, which reports OCR as unsupported so the
@@ -117,6 +124,8 @@ Reference: `LedgerPreview` in `app/(auth)/sign-in.tsx` is the north star for in-
   specificity resolver, the deep-link/prefill builder, and the reminder predicate — pure
   and unit-tested like the parser and warranty-terms modules. `hooks/use-product-registration.ts`
   persists status to the `product_registrations` table.
+- `lib/agent-readiness.ts` holds the pure typed recommendation engine for the Readiness Inbox.
+  It is suggest-only: the output is a typed action payload, not an autonomous executor.
 - `global.css` and `tailwind.config.js` define NativeWind tokens (see **Design System** above).
 
 Authentication is magic-link based through Supabase. The protected router in `app/_layout.tsx`
@@ -134,6 +143,11 @@ Optional:
 - `EXPO_PUBLIC_PAYMENTS`
 - `EXPO_PUBLIC_POSTHOG_KEY`
 - `EXPO_PUBLIC_POSTHOG_HOST`
+
+Server-side Supabase Function secrets:
+
+- `AGENT_MODEL_API_KEY` — optional future model provider key for server-side wording/ranking only.
+  Do not expose it as an `EXPO_PUBLIC_*` variable.
 
 `EXPO_PUBLIC_*` values are bundled into client JavaScript. Do not add secrets there.
 
@@ -184,6 +198,7 @@ Optional:
 | `lib/receipt-parser.ts` | `lib/receipt-parser.test.ts` |
 | `lib/warranty-terms.ts` | `lib/warranty-terms.test.ts` |
 | `lib/product-registration.ts` | `lib/product-registration.test.ts` |
+| `lib/agent-readiness.ts` | `lib/agent-readiness.test.ts` |
 | `lib/schemas.ts` | `lib/schemas.test.ts` |
 | `lib/utils.ts` | `lib/utils.test.ts` |
 

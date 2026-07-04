@@ -1,6 +1,8 @@
 // Hand-written to match supabase/migrations/ (0001_init.sql + 0002_receipt_ocr.sql +
-// 0003_product_registration.sql).
+// 0003_product_registration.sql + 0004_agent_recommendations.sql).
 // Replace later with `supabase gen types typescript` output once the CLI is set up.
+
+export type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
 export type Database = {
   public: {
@@ -113,6 +115,46 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database['public']['Tables']['product_registrations']['Insert']>;
+        Relationships: [];
+      };
+      agent_recommendations: {
+        Row: {
+          id: string;
+          user_id: string;
+          warranty_id: string | null;
+          kind: 'register_product' | 'extend_before_expiry' | 'claim_follow_up';
+          status: 'open' | 'dismissed' | 'resolved';
+          priority: 'low' | 'medium' | 'high';
+          title: string;
+          body: string;
+          action_payload: Json;
+          evidence: Json;
+          fingerprint: string;
+          last_evaluated_at: string;
+          dismissed_at: string | null;
+          resolved_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          warranty_id?: string | null;
+          kind: 'register_product' | 'extend_before_expiry' | 'claim_follow_up';
+          status?: 'open' | 'dismissed' | 'resolved';
+          priority: 'low' | 'medium' | 'high';
+          title: string;
+          body: string;
+          action_payload?: Json;
+          evidence?: Json;
+          fingerprint: string;
+          last_evaluated_at?: string;
+          dismissed_at?: string | null;
+          resolved_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['agent_recommendations']['Insert']>;
         Relationships: [];
       };
     };

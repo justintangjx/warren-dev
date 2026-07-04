@@ -9,6 +9,7 @@ A warranty management app — track product warranties, file claims, and extend 
 - **Track warranties** for any product — brand, model, serial, purchase date, duration
 - **Scan receipts** (web) — snap a photo and Warren extracts the retailer, date, product, and price, then suggests a warranty term from a brand/category lookup table
 - **Register products** with the manufacturer — Warren resolves the brand's registration page, surfaces the details to enter, deep-links you out, and tracks status with a time-boxed reminder
+- **Review a Readiness Inbox** — Warren suggests registration, extension, and claim follow-up actions before coverage quietly goes unused
 - **File claims** against a tracked warranty when something fails
 - **Extend warranties** before they expire (mock payment flow today; Stripe behind the same interface tomorrow)
 - **Magic-link sign-in** — no passwords, one email, RLS-enforced
@@ -22,6 +23,7 @@ A warranty management app — track product warranties, file claims, and extend 
 - **[expo-router](https://docs.expo.dev/router/introduction/)** for file-based routing across platforms
 - **[NativeWind v4](https://www.nativewind.dev/)** — Tailwind for React Native; same classnames on web and native
 - **[Supabase](https://supabase.com)** — Postgres + auth + Row Level Security (every row scoped to `auth.uid()`)
+- **Supabase Edge Functions** — server-side boundary for refreshing readiness recommendations and future model-provider calls
 - **[TanStack Query](https://tanstack.com/query)** for server state
 - **[React Hook Form](https://react-hook-form.com)** + **[Zod](https://zod.dev)** for form state and validation
 - **[PostHog](https://posthog.com)** — analytics + error tracking (no-ops without an API key)
@@ -54,6 +56,10 @@ cp .env.example .env.local
 | `EXPO_PUBLIC_POSTHOG_KEY` | no | leave empty to disable analytics |
 | `EXPO_PUBLIC_POSTHOG_HOST` | no | `https://us.i.posthog.com` (default) or EU |
 
+Server-side Supabase Function secrets are not bundled into the app. `AGENT_MODEL_API_KEY` is reserved
+for a future model provider that may phrase or rank typed readiness recommendations server-side.
+Do not add it to `EXPO_PUBLIC_*`.
+
 ### Database setup
 
 Run the files in `supabase/migrations/` **in order** in your Supabase project's SQL Editor (Project → SQL → New query → paste → Run):
@@ -61,6 +67,7 @@ Run the files in `supabase/migrations/` **in order** in your Supabase project's 
 1. `0001_init.sql` — creates the three tables (warranties, claims, extended_warranty_purchases) and the RLS policies that scope every row to its owner.
 2. `0002_receipt_ocr.sql` — adds the optional `retailer` and `purchase_price_cents` columns used by receipt scanning.
 3. `0003_product_registration.sql` — adds the `product_registrations` table (one row per warranty) plus RLS and an `updated_at` trigger.
+4. `0004_agent_recommendations.sql` — adds the suggest-only readiness recommendation table plus RLS, idempotent fingerprints, and refresh timestamps.
 
 ### Run it
 
@@ -78,12 +85,13 @@ app/                   expo-router file-based routes
   (tabs)/              main app tabs (warranties, claims, profile)
   warranties/          warranty detail, new, extend, contact flows
 components/ui/         primitives (Button, Input, Screen, Text, etc.) — see AGENTS.md Design System
-hooks/                 React Query hooks for warranties, claims, extend-warranty, product-registration
-lib/                   pure utilities, types, schemas, supabase + analytics clients (incl. product-registration directory)
+hooks/                 React Query hooks for warranties, claims, extend-warranty, product-registration, readiness recommendations
+lib/                   pure utilities, types, schemas, supabase + analytics clients (incl. product-registration and agent-readiness)
 providers/             React context: auth, query client, posthog
 services/payments/     payment provider interface + mock impl (Stripe TBD)
 services/ocr/          receipt scanning abstraction (tesseract.js web, native fallback)
 supabase/migrations/   DB schema + RLS policies
+supabase/functions/    Edge Functions, including refresh-agent-readiness
 __mocks__/             Jest manual mocks
 ```
 
@@ -110,6 +118,7 @@ When you add or change an eval module, update this list and the eval table in `A
 - `lib/receipt-parser.test.ts` — OCR text heuristics (retailer, date formats, totals, brand/product detection)
 - `lib/warranty-terms.test.ts` — warranty-term inference precedence (brand + category → brand → category → default)
 - `lib/product-registration.test.ts` — registration directory resolution, link/prefill building, and reminder-window logic
+- `lib/agent-readiness.test.ts` — typed readiness recommendation rules, priorities, fingerprints, and date boundaries
 
 Hook tests (with mocked Supabase client) are next on the roadmap.
 
@@ -134,6 +143,7 @@ Pull requests use `.github/pull_request_template.md`, including a documentation 
 ## Architectural notes
 
 - **Visual design** follows the landing page palette (warm off-white background, slate-950 primary, restrained amber accent). Its public content journey pairs an outcome-led hero with a benefit ledger, three-step workflow, visible FAQ, and route-specific web metadata. Tokens live in `global.css`; conventions and rollout rules are in `AGENTS.md` → Design System.
+- **The Readiness Inbox is suggest-only.** `lib/agent-readiness.ts` produces typed recommendation payloads; `supabase/functions/refresh-agent-readiness` persists them idempotently, preserves dismissed fingerprints, and resolves stale open rows. Future AI may only phrase/rank typed recommendations from the server boundary.
 - **`EXPO_PUBLIC_*` vars are public.** They're bundled into shipped JS by design. The Supabase anon key is meant to be public; security comes from RLS policies, not from hiding the key. The `service_role` key is **never** committed and never used client-side.
 - **Payments are abstracted behind `services/payments/`.** Today: a mock provider that simulates 95% success. Tomorrow: a `StripePaymentProvider` swap-in (web → Stripe.js, native → `@stripe/stripe-react-native`) without touching call sites.
 - **Analytics no-op without a PostHog key.** Set `EXPO_PUBLIC_POSTHOG_KEY` to enable. Web/native session replay deferred (web needs `posthog-js`, native needs a custom dev client off Expo Go).
